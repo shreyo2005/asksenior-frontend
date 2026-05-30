@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/api";
 import { s, colors, ROLE } from "../theme";
 import { Logo, ErrorBox, Progress, CollegePicker, CoursePicker } from "../components/common";
+import PhotoCapture from "../components/PhotoCapture";
 
 const accent = ROLE.insider.accent;
 
@@ -48,7 +49,7 @@ export function InsiderCollege({ userId, onNext, onBack }) {
   );
 }
 
-// Step 2 — Profile
+// Step 2 — Profile + photo
 export function InsiderProfile({ userId, onNext, onBack }) {
   const [f, setF] = useState({ fullName: "", phone: "", bio: "", linkedInUrl: "" });
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,7 @@ export function InsiderProfile({ userId, onNext, onBack }) {
         <h2 style={s.h2}>About you</h2>
         <p style={s.sub}>Keep it honest. Students value authenticity.</p>
         <ErrorBox message={error} />
+        <PhotoCapture role="insider" userId={userId} accent={accent} />
         <label style={s.label}>Full name</label>
         <input style={s.input} value={f.fullName} onChange={(e) => set("fullName")(e.target.value)} placeholder="Your full name" />
         <label style={s.label}>Phone number</label>
@@ -95,15 +97,32 @@ export function InsiderProfile({ userId, onNext, onBack }) {
   );
 }
 
-// Step 3 — Payout
+// Step 3 — Payout with live UPI verify
 export function InsiderPayout({ userId, onDone, onBack }) {
   const [f, setF] = useState({ upiId: "", collegeIdNumber: "", adminSummary: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [upiStatus, setUpiStatus] = useState(null); // null | VERIFIED | FAILED
+  const [upiMsg, setUpiMsg] = useState("");
+  const [checking, setChecking] = useState(false);
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+
+  const checkUpi = async () => {
+    if (!f.upiId) return setError("Enter a UPI ID first");
+    setChecking(true); setError("");
+    try {
+      const res = await api.verifyUpi(f.upiId);
+      setUpiStatus(res.status);
+      setUpiMsg(res.message);
+    } catch (e) {
+      setUpiStatus("FAILED");
+      setUpiMsg(e.message || "Could not verify");
+    } finally { setChecking(false); }
+  };
 
   const submit = async () => {
     if (!f.upiId || !f.collegeIdNumber) return setError("UPI ID and College ID are required");
+    if (upiStatus !== "VERIFIED") return setError("Please verify your UPI ID before submitting");
     try {
       setLoading(true); setError("");
       await api.put(`/insider/${userId}/payout`, f);
@@ -120,14 +139,38 @@ export function InsiderPayout({ userId, onDone, onBack }) {
         <h2 style={s.h2}>Payout & verification</h2>
         <p style={s.sub}>How we verify and pay you when students book sessions.</p>
         <ErrorBox message={error} />
+
         <label style={s.label}>UPI ID</label>
-        <input style={{ ...s.input, marginBottom: "4px" }} value={f.upiId} onChange={(e) => set("upiId")(e.target.value)} placeholder="yourname@upi" />
-        <p style={s.hint}>You'll receive payments here</p>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "4px" }}>
+          <input
+            style={{ ...s.input, marginBottom: 0, flex: 1 }}
+            value={f.upiId}
+            onChange={(e) => { set("upiId")(e.target.value); setUpiStatus(null); }}
+            placeholder="yourname@oksbi"
+          />
+          <button
+            style={{ ...s.btnGhost, width: "auto", padding: "0 16px", marginBottom: 0 }}
+            onClick={checkUpi} disabled={checking}
+          >
+            {checking ? "..." : "Verify"}
+          </button>
+        </div>
+        {upiStatus && (
+          <p style={{
+            fontSize: "12px", marginBottom: "14px",
+            color: upiStatus === "VERIFIED" ? colors.success : colors.danger,
+          }}>
+            {upiStatus === "VERIFIED" ? "✓ " : "✕ "}{upiMsg}
+          </p>
+        )}
+
         <label style={s.label}>College ID number</label>
         <input style={{ ...s.input, marginBottom: "4px" }} value={f.collegeIdNumber} onChange={(e) => set("collegeIdNumber")(e.target.value)} placeholder="Enrollment / USN" />
         <p style={s.hint}>Used to verify you're a current student</p>
+
         <label style={s.label}>Anything else? <span style={{ color: colors.textFaint, fontWeight: 400 }}>(optional)</span></label>
         <textarea style={{ ...s.textarea, marginBottom: "16px" }} rows={3} value={f.adminSummary} onChange={(e) => set("adminSummary")(e.target.value)} placeholder="Anything for the team..." />
+
         <button style={s.btn(accent)} onClick={submit} disabled={loading}>{loading ? "Saving..." : "Submit for approval"}</button>
         <button style={s.btnGhost} onClick={onBack}>Back</button>
       </div>

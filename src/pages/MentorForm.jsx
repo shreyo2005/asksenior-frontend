@@ -2,11 +2,12 @@ import { useState } from "react";
 import { api } from "../api/api";
 import { s, colors, ROLE } from "../theme";
 import { Logo, ErrorBox } from "../components/common";
+import PhotoCapture from "../components/PhotoCapture";
 
 export default function MentorForm({ userId, onDone }) {
   const [f, setF] = useState({
-    fullName: "", phone: "", company: "", designation: "", areaOfExpertise: "",
-    linkedInUrl: "", yearsOfExperience: "", bio: "", adminSummary: "",
+    fullName: "", phone: "", company: "", designation: "", workEmail: "",
+    areaOfExpertise: "", linkedInUrl: "", yearsOfExperience: "", bio: "", adminSummary: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,8 +15,8 @@ export default function MentorForm({ userId, onDone }) {
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
 
   const submit = async () => {
-    if (!f.fullName || !f.phone || !f.company || !f.designation)
-      return setError("Please fill in all required fields");
+    if (!f.fullName || !f.phone || !f.company || !f.designation || !f.workEmail)
+      return setError("Please fill in all required fields, including work email");
     try {
       setLoading(true); setError("");
       await api.put(`/mentor/${userId}/profile`, {
@@ -23,7 +24,7 @@ export default function MentorForm({ userId, onDone }) {
         yearsOfExperience: f.yearsOfExperience ? parseInt(f.yearsOfExperience, 10) : null,
       });
       onDone();
-    } catch (e) { setError(e.message || "Failed"); }
+    } catch (e) { setError(e.workEmail || e.message || "Failed"); }
     finally { setLoading(false); }
   };
 
@@ -35,11 +36,16 @@ export default function MentorForm({ userId, onDone }) {
         <p style={s.sub}>Students will see this when looking for career guidance.</p>
         <ErrorBox message={error} />
 
+        <PhotoCapture role="mentor" userId={userId} accent={accent} />
+
         <label style={s.label}>Full name</label>
         <input style={s.input} value={f.fullName} onChange={(e) => set("fullName")(e.target.value)} placeholder="Your full name" />
 
         <label style={s.label}>Phone number</label>
         <input style={s.input} value={f.phone} onChange={(e) => set("phone")(e.target.value)} placeholder="+91 9XXXXXXXXX" />
+
+        <label style={s.label}>Work email</label>
+        <input style={s.input} type="email" value={f.workEmail} onChange={(e) => set("workEmail")(e.target.value)} placeholder="you@company.com" />
 
         <label style={s.label}>Company</label>
         <input style={s.input} value={f.company} onChange={(e) => set("company")(e.target.value)} placeholder="e.g. Google" />
@@ -48,7 +54,7 @@ export default function MentorForm({ userId, onDone }) {
         <input style={s.input} value={f.designation} onChange={(e) => set("designation")(e.target.value)} placeholder="e.g. Senior Software Engineer" />
 
         <label style={s.label}>Area of expertise</label>
-        <input style={s.input} value={f.areaOfExpertise} onChange={(e) => set("areaOfExpertise")(e.target.value)} placeholder="e.g. Product Management, Data Science" />
+        <input style={s.input} value={f.areaOfExpertise} onChange={(e) => set("areaOfExpertise")(e.target.value)} placeholder="e.g. Product Management" />
 
         <label style={s.label}>Years of experience</label>
         <input style={s.input} type="number" value={f.yearsOfExperience} onChange={(e) => set("yearsOfExperience")(e.target.value)} placeholder="e.g. 5" />

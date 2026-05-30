@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { api } from "../api/api";
-import { s, ROLE } from "../theme";
+import { s, colors, ROLE } from "../theme";
 import { Logo, ErrorBox, CollegePicker, CoursePicker } from "../components/common";
+import PhotoCapture from "../components/PhotoCapture";
 
 export default function StudentForm({ userId, onDone }) {
   const [f, setF] = useState({
     fullName: "", phone: "", college: "", course: "", customCourse: "",
-    year: "", city: "", linkedInUrl: "",
+    year: "", city: "", linkedInUrl: "", collegeEmail: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,7 +23,7 @@ export default function StudentForm({ userId, onDone }) {
       setLoading(true); setError("");
       await api.put(`/student/${userId}/profile`, f);
       onDone();
-    } catch (e) { setError(e.message || "Failed to save"); }
+    } catch (e) { setError(e.collegeEmail || e.message || "Failed to save"); }
     finally { setLoading(false); }
   };
 
@@ -33,6 +34,8 @@ export default function StudentForm({ userId, onDone }) {
         <h2 style={s.h2}>Tell us about you</h2>
         <p style={s.sub}>So we can match you with the right insiders.</p>
         <ErrorBox message={error} />
+
+        <PhotoCapture role="student" userId={userId} accent={accent} />
 
         <label style={s.label}>Full name</label>
         <input style={s.input} value={f.fullName} onChange={(e) => set("fullName")(e.target.value)} placeholder="Your full name" />
@@ -57,7 +60,10 @@ export default function StudentForm({ userId, onDone }) {
         <label style={s.label}>City</label>
         <input style={s.input} value={f.city} onChange={(e) => set("city")(e.target.value)} placeholder="e.g. Bengaluru" />
 
-        <label style={s.label}>LinkedIn <span style={{ color: "#a39f98", fontWeight: 400 }}>(optional)</span></label>
+        <label style={s.label}>College email <span style={{ color: colors.textFaint, fontWeight: 400 }}>(optional)</span></label>
+        <input style={s.input} value={f.collegeEmail} onChange={(e) => set("collegeEmail")(e.target.value)} placeholder="you@college.edu" />
+
+        <label style={s.label}>LinkedIn <span style={{ color: colors.textFaint, fontWeight: 400 }}>(optional)</span></label>
         <input style={s.input} value={f.linkedInUrl} onChange={(e) => set("linkedInUrl")(e.target.value)} placeholder="https://linkedin.com/in/..." />
 
         <button style={s.btn(accent)} onClick={submit} disabled={loading}>
