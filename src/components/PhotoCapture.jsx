@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { s, colors } from "../theme";
 
-const BASE = "http://localhost:8081/api";
+const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";
 
 // Reusable photo capture: device upload OR live webcam.
 // Uploads to backend immediately, calls onUploaded(path).

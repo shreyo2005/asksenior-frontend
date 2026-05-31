@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { FONT, s, colors, ROLE } from "../theme";
 import { Logo, ErrorBox, Spinner } from "../components/common";
 
-const BASE = "http://localhost:8081/api";
+const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";
+const ASSET_BASE = BASE.replace(/\/api$/, "");
 
 function BarChart({ data, accent }) {
   const entries = Object.entries(data || {}).sort((a, b) => b[1] - a[1]).slice(0, 6);
@@ -41,7 +42,7 @@ function RecordRow({ record, accent, fields }) {
         <div style={{ background: colors.bg, borderRadius: "10px", padding: "12px 14px", marginBottom: "10px" }}>
           {record.photoPath && (
             <img
-              src={`http://localhost:8081${record.photoPath}`}
+              src={`${ASSET_BASE}${record.photoPath}`}
               alt="profile"
               style={{ width: "64px", height: "64px", borderRadius: "50%", objectFit: "cover", marginBottom: "10px", border: `1px solid ${colors.border}` }}
             />
