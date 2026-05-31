@@ -50,7 +50,6 @@ export function Spinner() {
   );
 }
 
-// Searchable college dropdown backed by /api/catalog/colleges
 export function CollegePicker({ value, onChange }) {
   const [colleges, setColleges] = useState([]);
   const [query, setQuery] = useState(value || "");
@@ -62,17 +61,19 @@ export function CollegePicker({ value, onChange }) {
     .filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
     .slice(0, 8);
 
+  const exactMatch = colleges.some((c) => c.name.toLowerCase() === query.trim().toLowerCase());
+
   return (
     <div style={{ position: "relative", marginBottom: "16px" }}>
       <input
         style={{ ...s.input, marginBottom: 0 }}
-        placeholder="Search your college..."
+        placeholder="Search or type your college..."
         value={query}
-        onChange={(e) => { setQuery(e.target.value); onChange(""); setOpen(true); }}
+        onChange={(e) => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
-      {open && query && filtered.length > 0 && (
+      {open && query && (filtered.length > 0 || !exactMatch) && (
         <div style={{
           position: "absolute", top: "47px", left: 0, right: 0, background: colors.surface,
           border: `1px solid ${colors.border}`, borderRadius: "9px",
@@ -93,13 +94,23 @@ export function CollegePicker({ value, onChange }) {
               {c.city && <span style={{ color: colors.textFaint, fontSize: "11px" }}> · {c.city}</span>}
             </div>
           ))}
+          {!exactMatch && query.trim().length > 1 && (
+            <div
+              onMouseDown={() => { onChange(query.trim()); setOpen(false); }}
+              style={{
+                padding: "10px 14px", fontSize: "13px", cursor: "pointer",
+                color: colors.accentText, fontWeight: 600, background: colors.accentSoft,
+              }}
+            >
+              Use "{query.trim()}" (my college isn't listed)
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// Course dropdown with "Other" -> custom text input
 export function CoursePicker({ course, customCourse, onCourse, onCustom }) {
   const [courses, setCourses] = useState([]);
   useEffect(() => { api.get("/catalog/courses").then(setCourses).catch(() => {}); }, []);

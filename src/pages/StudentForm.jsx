@@ -14,16 +14,20 @@ export default function StudentForm({ userId, onDone }) {
   const accent = ROLE.student.accent;
   const set = (k) => (v) => setF((prev) => ({ ...prev, [k]: v }));
 
+  const phoneOk = (p) => /^(\+91)?[6-9][0-9]{9}$/.test(p.replace(/\s/g, ""));
+
   const submit = async () => {
-    if (!f.fullName || !f.phone || !f.college || !f.course)
-      return setError("Please fill in all required fields");
-    if (f.course === "Other" && !f.customCourse)
-      return setError("Please enter your course name");
+    if (!f.fullName) return setError("Full name is required");
+    if (!phoneOk(f.phone)) return setError("Enter a valid 10-digit Indian mobile number (starts 6-9)");
+    if (!f.college) return setError("Please select or enter your college");
+    if (!f.course) return setError("Please select your course");
+    if (f.course === "Other" && !f.customCourse) return setError("Please enter your course name");
+    if (f.collegeEmail && !/\S+@\S+\.\S+/.test(f.collegeEmail)) return setError("Please enter a valid college email");
     try {
       setLoading(true); setError("");
       await api.put(`/student/${userId}/profile`, f);
       onDone();
-    } catch (e) { setError(e.collegeEmail || e.message || "Failed to save"); }
+    } catch (e) { setError(e.collegeEmail || e.phone || e.message || "Failed to save"); }
     finally { setLoading(false); }
   };
 
@@ -41,7 +45,7 @@ export default function StudentForm({ userId, onDone }) {
         <input style={s.input} value={f.fullName} onChange={(e) => set("fullName")(e.target.value)} placeholder="Your full name" />
 
         <label style={s.label}>Phone number</label>
-        <input style={s.input} value={f.phone} onChange={(e) => set("phone")(e.target.value)} placeholder="+91 9XXXXXXXXX" />
+        <input style={s.input} value={f.phone} onChange={(e) => set("phone")(e.target.value.replace(/[^\d+]/g, ""))} placeholder="9876543210" type="tel" />
 
         <label style={s.label}>Target / current college</label>
         <CollegePicker value={f.college} onChange={set("college")} />

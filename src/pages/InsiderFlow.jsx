@@ -56,15 +56,18 @@ export function InsiderProfile({ userId, onNext, onBack }) {
   const [error, setError] = useState("");
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   const words = f.bio.trim() ? f.bio.trim().split(/\s+/).length : 0;
+  const phoneOk = (p) => /^(\+91)?[6-9][0-9]{9}$/.test(p.replace(/\s/g, ""));
 
   const submit = async () => {
-    if (!f.fullName || !f.phone || !f.bio) return setError("Please fill in all required fields");
+    if (!f.fullName) return setError("Full name is required");
+    if (!phoneOk(f.phone)) return setError("Enter a valid 10-digit Indian mobile number (starts 6-9)");
+    if (!f.bio) return setError("Please write a short bio");
     if (words > 50) return setError("Bio must be 50 words or less");
     try {
       setLoading(true); setError("");
       await api.put(`/insider/${userId}/profile`, f);
       onNext();
-    } catch (e) { setError(e.message || "Failed"); }
+    } catch (e) { setError(e.phone || e.message || "Failed"); }
     finally { setLoading(false); }
   };
 
@@ -80,7 +83,7 @@ export function InsiderProfile({ userId, onNext, onBack }) {
         <label style={s.label}>Full name</label>
         <input style={s.input} value={f.fullName} onChange={(e) => set("fullName")(e.target.value)} placeholder="Your full name" />
         <label style={s.label}>Phone number</label>
-        <input style={s.input} value={f.phone} onChange={(e) => set("phone")(e.target.value)} placeholder="+91 9XXXXXXXXX" />
+        <input style={s.input} value={f.phone} onChange={(e) => set("phone")(e.target.value.replace(/[^\d+]/g, ""))} placeholder="9876543210" type="tel" />
         <label style={s.label}>Short bio <span style={{ color: colors.textFaint, fontWeight: 400 }}>(max 50 words)</span></label>
         <textarea style={{ ...s.textarea, marginBottom: "4px" }} rows={4} value={f.bio}
           onChange={(e) => set("bio")(e.target.value)}
@@ -102,33 +105,28 @@ export function InsiderPayout({ userId, onDone, onBack }) {
   const [f, setF] = useState({ upiId: "", collegeIdNumber: "", adminSummary: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [upiStatus, setUpiStatus] = useState(null); // null | VERIFIED | FAILED
-  const [upiMsg, setUpiMsg] = useState("");
-  const [checking, setChecking] = useState(false);
+  const [blocked, setBlocked] = useState(false); // disables submit after a failed UPI check
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
 
-  const checkUpi = async () => {
-    if (!f.upiId) return setError("Enter a UPI ID first");
-    setChecking(true); setError("");
-    try {
-      const res = await api.verifyUpi(f.upiId);
-      setUpiStatus(res.status);
-      setUpiMsg(res.message);
-    } catch (e) {
-      setUpiStatus("FAILED");
-      setUpiMsg(e.message || "Could not verify");
-    } finally { setChecking(false); }
+  // Editing the UPI re-enables the button so they can retry
+  const setUpi = (v) => {
+    setF((p) => ({ ...p, upiId: v }));
+    if (blocked) { setBlocked(false); setError(""); }
   };
 
   const submit = async () => {
     if (!f.upiId || !f.collegeIdNumber) return setError("UPI ID and College ID are required");
-    if (upiStatus !== "VERIFIED") return setError("Please verify your UPI ID before submitting");
     try {
       setLoading(true); setError("");
+      // Backend validates the UPI; on invalid it throws with a message
       await api.put(`/insider/${userId}/payout`, f);
       onDone();
-    } catch (e) { setError(e.message || "Failed"); }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e.message || "Invalid UPI ID. Please correct it and try again.");
+      setBlocked(true); // keep button disabled until they edit the UPI
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -141,28 +139,8 @@ export function InsiderPayout({ userId, onDone, onBack }) {
         <ErrorBox message={error} />
 
         <label style={s.label}>UPI ID</label>
-        <div style={{ display: "flex", gap: "8px", marginBottom: "4px" }}>
-          <input
-            style={{ ...s.input, marginBottom: 0, flex: 1 }}
-            value={f.upiId}
-            onChange={(e) => { set("upiId")(e.target.value); setUpiStatus(null); }}
-            placeholder="yourname@oksbi"
-          />
-          <button
-            style={{ ...s.btnGhost, width: "auto", padding: "0 16px", marginBottom: 0 }}
-            onClick={checkUpi} disabled={checking}
-          >
-            {checking ? "..." : "Verify"}
-          </button>
-        </div>
-        {upiStatus && (
-          <p style={{
-            fontSize: "12px", marginBottom: "14px",
-            color: upiStatus === "VERIFIED" ? colors.success : colors.danger,
-          }}>
-            {upiStatus === "VERIFIED" ? "✓ " : "✕ "}{upiMsg}
-          </p>
-        )}
+        <input style={{ ...s.input, marginBottom: "4px" }} value={f.upiId} onChange={(e) => setUpi(e.target.value)} placeholder="yourname@oksbi" />
+        <p style={s.hint}>You'll receive payments here when students book sessions</p>
 
         <label style={s.label}>College ID number</label>
         <input style={{ ...s.input, marginBottom: "4px" }} value={f.collegeIdNumber} onChange={(e) => set("collegeIdNumber")(e.target.value)} placeholder="Enrollment / USN" />
@@ -171,7 +149,13 @@ export function InsiderPayout({ userId, onDone, onBack }) {
         <label style={s.label}>Anything else? <span style={{ color: colors.textFaint, fontWeight: 400 }}>(optional)</span></label>
         <textarea style={{ ...s.textarea, marginBottom: "16px" }} rows={3} value={f.adminSummary} onChange={(e) => set("adminSummary")(e.target.value)} placeholder="Anything for the team..." />
 
-        <button style={s.btn(accent)} onClick={submit} disabled={loading}>{loading ? "Saving..." : "Submit for approval"}</button>
+        <button
+          style={{ ...s.btn(accent), opacity: (loading || blocked) ? 0.5 : 1, cursor: (loading || blocked) ? "not-allowed" : "pointer" }}
+          onClick={submit}
+          disabled={loading || blocked}
+        >
+          {loading ? "Verifying..." : "Submit for approval"}
+        </button>
         <button style={s.btnGhost} onClick={onBack}>Back</button>
       </div>
     </div>
